@@ -201,30 +201,150 @@ const refreshToken = asyncHandler(async (req, res) => {
       throw new ApiError(401, "Invalid refresh token");
     }
 
-    if(user?.refreshToken !== incomingRefreshToken){
+    if (user?.refreshToken !== incomingRefreshToken) {
       throw new ApiError(401, "Invalid refresh token");
     }
 
-    const {accessToken,refreshToken}= await genrateAccessTokenAndRefreshToken(user._id)
+    const { accessToken, refreshToken } =
+      await genrateAccessTokenAndRefreshToken(user._id);
 
     const options = {
       httpOnly: true,
       secure: true,
     };
     return res
-    .status(200)
-    .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", newRefreshToken, options)
-    .json(
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", newRefreshToken, options)
+      .json(
         new ApiResponse(
-            200, 
-            {accessToken, refreshToken: newRefreshToken},
-            "Access token refreshed"
+          200,
+          { accessToken, refreshToken: newRefreshToken },
+          "Access token refreshed"
         )
-    )
-} catch (error) {
-    throw new ApiError(401, error?.message || "Invalid refresh token")
-}
-
+      );
+  } catch (error) {
+    throw new ApiError(401, error?.message || "Invalid refresh token");
+  }
 });
-export { registerUser, loginUser, logoutUser, refreshToken };
+
+const currentPasswordChange = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+
+  if (!oldPassword || !newPassword) {
+    throw new ApiError(401, "Fill all Fields");
+  }
+
+  const user = await User.findById(req.user?._id);
+  if (!user) {
+    throw new ApiError(401, "User Not Found");
+  }
+
+  const checkPassword = user.isPasswordCorrect(user.password);
+
+  if (!checkPassword) {
+    throw new ApiError(401, "User Not Found");
+  }
+
+  if (checkPassword !== oldPassword) {
+    throw new ApiError(401, "Old Password is Incorrect");
+  }
+
+  user.password = newPassword;
+  user.save({ validateBeforeSave: false });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password changed successfully"));
+});
+
+const getCurrentUser = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(new ApiResponse(200, req.user, "User fetched successfully"));
+});
+
+const updateAccountDetails = asyncHandler(async (req, res) => {
+  const { fullname, email } = req.body;
+
+  if (!fullname || !email) {
+    throw new ApiError(401, "Fill all Fields");
+  }
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        fullname,
+        email,
+      },
+    },
+    {
+      new: true,
+    }
+  ).select("-password -refreshToken");
+
+  return res.status(200).json(new ApiResponse(200, user, "Detaile Upadted"));
+});
+
+const updateUserAvtar = asyncHandler(async (ewq, res) => {
+  const avatarLocalPath = req.file?.avatar;
+  if (!avatarLocalPath) {
+    throw new ApiError(400, "File noy uploaded on server");
+  }
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
+
+  if (!avatar) {
+    throw new ApiError(402, "File noy uploaded on cloudinary");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        avatar: avatar.url,
+      },
+    },
+    { new: true }
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Avatar Uploaded suceesfully"));
+});
+const updateUserCoverImage = asyncHandler(async (ewq, res) => {
+  const coverImageLocalPath = req.file?.avatar;
+  if (!coverImageLocalPath) {
+    throw new ApiError(400, "File noy uploaded on server");
+  }
+  const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+
+  if (!coverImage) {
+    throw new ApiError(402, "File noy uploaded on cloudinary");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        coverImage: coverImage.url,
+      },
+    },
+    { new: true }
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "CoverImage Uploaded suceesfully"));
+});
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshToken,
+  currentPasswordChange,
+  getCurrentUser,
+  updateAccountDetails,
+  updateUserAvtar,
+  updateUserCoverImage,
+};
