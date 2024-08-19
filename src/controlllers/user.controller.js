@@ -311,7 +311,7 @@ const updateUserAvtar = asyncHandler(async (ewq, res) => {
     .status(200)
     .json(new ApiResponse(200, user, "Avatar Uploaded suceesfully"));
 });
-const updateUserCoverImage = asyncHandler(async (ewq, res) => {
+const updateUserCoverImage = asyncHandler(async (req, res) => {
   const coverImageLocalPath = req.file?.avatar;
   if (!coverImageLocalPath) {
     throw new ApiError(400, "File noy uploaded on server");
@@ -337,6 +337,74 @@ const updateUserCoverImage = asyncHandler(async (ewq, res) => {
     .json(new ApiResponse(200, user, "CoverImage Uploaded suceesfully"));
 });
 
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  const username = req.params;
+
+  if (!username?.trim()) {
+    throw new ApiError(400, "Username Not Found");
+  }
+
+  const channel = await User.aggregate([
+    {
+      $match: {
+        username: username?.toLowerCase(),
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subcribedTo",
+      },
+    },
+    {
+      $addFields: {
+        subscribersCount: {
+          $count: "$subscribers",
+        },
+        subcribedToCount: {
+          $count: "$subcribedTo",
+        },
+        isSubcribed: {
+          $con: {
+            if: { $in: [req.user._id, $subscribers.subscriber] },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        fullname: 1,
+        username: 1,
+        avatar: 1,
+        coverImage: 1,
+        subscribersCount: 1,
+        subcribedToCount: 1,
+        isSubcribed,
+      },
+    },
+  ]);
+
+  if (!channel?.length()) {
+    throw new ApiError(404, "channel does not exists");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, channel, "User channel fetched successfully"));
+});
+
 export {
   registerUser,
   loginUser,
@@ -347,4 +415,5 @@ export {
   updateAccountDetails,
   updateUserAvtar,
   updateUserCoverImage,
+  getUserChannelProfile,
 };
