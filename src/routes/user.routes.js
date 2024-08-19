@@ -9,6 +9,7 @@ import {
   updateAccountDetails,
   updateUserAvtar,
   updateUserCoverImage,
+  currentPasswordChange
 } from "../controlllers/user.controller.js";
 import { upload } from "../middleware/multer.middleware.js";
 import { verifyJwt } from "../middleware/auth.middleware.js";
@@ -28,6 +29,8 @@ router.route("/login").post(loginUser);
 router.route("/logout").post(verifyJwt, logoutUser);
 
 router.route("/refresh-token").post(refreshToken);
+
+router.route("/change-password").post(verifyJwt, currentPasswordChange)
 
 router.route("/update-details").patch(verifyJwt, updateAccountDetails);
 

@@ -182,51 +182,47 @@ const logoutUser = asyncHandler(async (req, res) => {
 });
 
 const refreshToken = asyncHandler(async (req, res) => {
-  const incomingRefreshToken =
-    req.cookies.refreshToken || req.body.refreshToken;
-
-  if (!incomingRefreshToken) {
-    throw new ApiError(402, "No Refresh Token found");
-  }
-
-  try {
-    const decodedToken = jwt.verify(
-      incomingRefreshToken,
-      process.env.REFRESH_TOKEN_SECRET
-    );
-
-    const user = await User.findById(decodedToken?._id);
-
-    if (!user) {
-      throw new ApiError(401, "Invalid refresh token");
-    }
-
-    if (user?.refreshToken !== incomingRefreshToken) {
-      throw new ApiError(401, "Invalid refresh token");
-    }
-
-    const { accessToken, refreshToken } =
-      await genrateAccessTokenAndRefreshToken(user._id);
-
-    const options = {
-      httpOnly: true,
-      secure: true,
-    };
-    return res
-      .status(200)
-      .cookie("accessToken", accessToken, options)
-      .cookie("refreshToken", newRefreshToken, options)
-      .json(
-        new ApiResponse(
-          200,
-          { accessToken, refreshToken: newRefreshToken },
-          "Access token refreshed"
-        )
-      );
-  } catch (error) {
-    throw new ApiError(401, error?.message || "Invalid refresh token");
-  }
-});
+   const incomingRefreshToken =
+     req.cookies.refreshToken || req.body.refreshToken;
+   if (!incomingRefreshToken) {
+     throw new ApiError(402, "No Refresh Token found");
+   }
+   try {
+     const decodedToken = jwt.verify(
+       incomingRefreshToken,
+       process.env.REFRESH_TOKEN_SECRET
+     );
+     const user = await User.findById(decodedToken?._id);
+      console.log("Incomming : ", incomingRefreshToken);
+      console.log("Decoded : ", decodedToken);
+      console.log("User Token : ",user.refreshToken, user.fullname, user._id);
+     if (!user) {
+       throw new ApiError(401, "Invalid refresh token");
+     }
+     if (incomingRefreshToken !== user?.refreshToken) {
+       throw new ApiError(401, "Refresh token is expired or used");
+     }
+     const { accessToken, newRefreshToken } =
+       await genrateAccessTokenAndRefreshToken(user._id);
+     const options = {
+       httpOnly: true,
+       secure: true,
+     };
+     return res
+       .status(200)
+       .cookie("accessToken", accessToken, options)
+       .cookie("refreshToken", newRefreshToken, options)
+       .json(
+         new ApiResponse(
+           200,
+           { accessToken, refreshToken: newRefreshToken },
+           "Access token refreshed"
+         )
+       );
+   } catch (error) {
+     throw new ApiError(401, error.message || "Invalid refresh token");
+   }
+ });
 
 const currentPasswordChange = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword } = req.body;
@@ -240,14 +236,10 @@ const currentPasswordChange = asyncHandler(async (req, res) => {
     throw new ApiError(401, "User Not Found");
   }
 
-  const checkPassword = user.isPasswordCorrect(user.password);
+  const checkPassword = await user.isPasswordCorrect(oldPassword);
 
   if (!checkPassword) {
     throw new ApiError(401, "User Not Found");
-  }
-
-  if (checkPassword !== oldPassword) {
-    throw new ApiError(401, "Old Password is Incorrect");
   }
 
   user.password = newPassword;
@@ -257,6 +249,53 @@ const currentPasswordChange = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, {}, "Password changed successfully"));
 });
+
+// const refreshToken = asyncHandler(async (req, res) => {
+// const incomingRefreshToken =
+//      req.cookies.refreshToken || req.body.refreshToken;
+//    if (!incomingRefreshToken) {
+//      throw new ApiError(402, "No Refresh Token found");
+//    }
+//    try {
+//      const decodedToken = jwt.verify(
+//        incomingRefreshToken,
+//        process.env.REFRESH_TOKEN_SECRET
+//      );
+//      const user = await User.findById(decodedToken?._id);
+//      // Debugging logs
+//      console.log("Incoming Refresh Token:", incomingRefreshToken);
+//      console.log("Decoded Token ID:", decodedToken?._id);
+//      console.log("Stored Refresh Token:", user?.refreshToken);
+//      if (!user) {
+//        throw new ApiError(401, "Invalid refresh token");
+//      }
+//      if (incomingRefreshToken !== user?.refreshToken) {
+//        throw new ApiError(401, "Refresh token is expired or used");
+//      }
+//      const { accessToken, newRefreshToken } =
+//        await genrateAccessTokenAndRefreshToken(user._id);
+//      // Update the user's refresh token in the database
+//      user.refreshToken = newRefreshToken;
+//      await user.save();
+//      const options = {
+//        httpOnly: true,
+//        secure: true,
+//      };
+//      return res
+//        .status(200)
+//        .cookie("accessToken", accessToken, options)
+//        .cookie("refreshToken", newRefreshToken, options)
+//        .json(
+//          new ApiResponse(
+//            200,
+//            { accessToken, refreshToken: newRefreshToken },
+//            "Access token refreshed"
+//          )
+//        );
+//    } catch (error) {
+//      throw new ApiError(401, error.message || "Invalid refresh token");
+//    }
+//  });
 
 const getCurrentUser = asyncHandler(async (req, res) => {
   return res
@@ -286,10 +325,13 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, user, "Detaile Upadted"));
 });
 
-const updateUserAvtar = asyncHandler(async (ewq, res) => {
-  const avatarLocalPath = req.file?.avatar;
+const updateUserAvtar = asyncHandler(async (req, res) => {
+  const avatarLocalPath = req.file?.path;
+
+  console.log(avatarLocalPath);
+
   if (!avatarLocalPath) {
-    throw new ApiError(400, "File noy uploaded on server");
+    throw new ApiError(400, "Avatar is missing on server");
   }
   const avatar = await uploadOnCloudinary(avatarLocalPath);
 
@@ -312,7 +354,7 @@ const updateUserAvtar = asyncHandler(async (ewq, res) => {
     .json(new ApiResponse(200, user, "Avatar Uploaded suceesfully"));
 });
 const updateUserCoverImage = asyncHandler(async (req, res) => {
-  const coverImageLocalPath = req.file?.avatar;
+  const coverImageLocalPath = req.file?.path;
   if (!coverImageLocalPath) {
     throw new ApiError(400, "File noy uploaded on server");
   }
@@ -338,7 +380,7 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
 });
 
 const getUserChannelProfile = asyncHandler(async (req, res) => {
-  const username = req.params;
+  const { username } = req.params;
 
   if (!username?.trim()) {
     throw new ApiError(400, "Username Not Found");
@@ -369,14 +411,15 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     {
       $addFields: {
         subscribersCount: {
-          $count: "$subscribers",
+          $size: "$subscribers",
         },
         subcribedToCount: {
-          $count: "$subcribedTo",
+          $size: "$subcribedTo",
         },
         isSubcribed: {
-          $con: {
-            if: { $in: [req.user._id, $subscribers.subscriber] },
+          $cond: {
+            // if: { $in: [req.user?._id, $subscribers.subscriber] },
+            if: { $in: [req.user?._id, "$subscribers.subscriber"] },
             then: true,
             else: false,
           },
@@ -391,12 +434,12 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         coverImage: 1,
         subscribersCount: 1,
         subcribedToCount: 1,
-        isSubcribed,
+        isSubcribed: 1,
       },
     },
   ]);
 
-  if (!channel?.length()) {
+  if (!channel?.length) {
     throw new ApiError(404, "channel does not exists");
   }
 
