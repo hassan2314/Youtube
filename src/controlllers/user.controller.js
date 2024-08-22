@@ -1,7 +1,10 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import {
+  deleteFromCloudinary,
+  uploadOnCloudinary,
+} from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
@@ -164,7 +167,7 @@ const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     req.user._id,
     {
-      $set: { refreshToken: undefined },
+      $unset: { refreshToken: 1 },
     },
     {
       new: true,
@@ -329,16 +332,21 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 const updateUserAvtar = asyncHandler(async (req, res) => {
   const avatarLocalPath = req.file?.path;
 
-  console.log(avatarLocalPath);
-
   if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar is missing on server");
   }
+
+  const oldAvatar = req.user?.avatar;
+  const public_id = oldAvatar.split('/').pop().split('.')[0];
+
   const avatar = await uploadOnCloudinary(avatarLocalPath);
 
   if (!avatar) {
     throw new ApiError(402, "File noy uploaded on cloudinary");
   }
+
+  await deleteFromCloudinary(public_id);
+  
 
   const user = await User.findByIdAndUpdate(
     req.user?._id,
@@ -354,12 +362,19 @@ const updateUserAvtar = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, user, "Avatar Uploaded suceesfully"));
 });
+
 const updateUserCoverImage = asyncHandler(async (req, res) => {
   const coverImageLocalPath = req.file?.path;
   if (!coverImageLocalPath) {
     throw new ApiError(400, "File noy uploaded on server");
   }
+  const oldCoverImage = req.user?.coverImage;
+  const public_id = oldCoverImage.split('/').pop().split('.')[0];
+
   const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+
+  const deleteImage = await deleteFromCloudinary(public_id);  
+  console.log(deleteImage)
 
   if (!coverImage) {
     throw new ApiError(402, "File noy uploaded on cloudinary");
