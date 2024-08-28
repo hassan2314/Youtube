@@ -13,7 +13,8 @@ const getVideoComments = asyncHandler(async (req, res) => {
 })
 
 const addComment = asyncHandler(async (req, res) => {
-  const content = req.body;
+  const {content} = req.body;
+  console.log(content)
   const owner = req.user;
   const { videoId } = req.params;
 
@@ -25,15 +26,18 @@ const addComment = asyncHandler(async (req, res) => {
     throw new ApiError(404, "User Not Found");
   }
 
-  if (!content) {
-    throw new ApiError(404, "Comment is Missing");
+  if (typeof content !== 'string' || !content.trim()) {
+    throw new ApiError(400, "Invalid Comment Content");
   }
 
   const comment = await Comment.create({
-    content: content,
+    content: content.trim(),
     owner: owner._id,
     video: videoId,
   });
+  if (!comment) {
+    throw new ApiError(501,"Comment error")
+  }
 
   const commentCreated = await Comment.findOne({ _id: comment._id })
     .populate("owner")
@@ -45,11 +49,14 @@ const addComment = asyncHandler(async (req, res) => {
 });
 
 const updateComment = asyncHandler(async (req, res) => {
-  const updatedComment = req.body;
-  const commentId = req.params;
+  console.log(req.body)
+  const {updatedComment} = req.body;
+  const {commentId} = req.params;
 
-  if (!updatedComment) {
-    throw new ApiError(404, "Message is missing");
+  console.log(updatedComment)
+
+  if (typeof updatedComment !== 'string' || !updatedComment.trim()) {
+    throw new ApiError(400, "Invalid Comment Content");
   }
 
   if (!commentId) {
@@ -59,7 +66,7 @@ const updateComment = asyncHandler(async (req, res) => {
   const updated = await Comment.findByIdAndUpdate(
     commentId,
     {
-      $set: {content: updatedComment},
+      $set: {content: updatedComment.trim()},
     },
     {
       new: true,
@@ -76,7 +83,7 @@ const updateComment = asyncHandler(async (req, res) => {
 
 const deleteComment = asyncHandler(async (req, res) => {
 
-  const commentId = req.params;
+  const {commentId} = req.params;
 
   if (!commentId) {
     throw new ApiError(404, "Comment not found");
