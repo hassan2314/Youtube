@@ -2,11 +2,11 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { Video } from "../models/video.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { uploadOnCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 
 const publishVideo = asyncHandler(async (req, res) => {
   const { title, discription } = req.body;
-  if ([title, discription, isPublished].some((field) => field?.trim() === "")) {
+  if ([title, discription].some((field) => field?.trim() === "")) {
     throw new ApiError(404, "Fileds not found");
   }
 
@@ -34,8 +34,8 @@ const publishVideo = asyncHandler(async (req, res) => {
     title: title,
     discription: discription,
     isPublished: true,
-    thumbnail: thumbnailOnCloudinary,
-    videoFile: videoOnCloudinary,
+    thumbnail: thumbnailOnCloudinary.url,
+    videoFile: videoOnCloudinary.url,
     duration: videoOnCloudinary.duration,
     owner: req.user?._id,
   });
@@ -87,7 +87,7 @@ const updateVideo = asyncHandler(async (req, res) => {
       {
         title : title,
         discription,
-        thumbnail
+        thumbnail : thumbnail.url
       }
     },
     {
@@ -153,7 +153,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
   video.isPublished = !video.isPublished;
 
   // Save the updated video back to the database
-  await video.save();
+  await video.save({validateBeforeSave: false });
 
   // Respond with the updated video information
   return res.status(200).json(new ApiResponse(200, video, "Video publish status updated successfully"));
