@@ -10,6 +10,8 @@ const getVideoComments = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
   const { page = 1, limit = 10 } = req.query;
 
+  const skip = (page - 1) * limit;
+
   const comment = await Comment.aggregate([
     [
       {
@@ -39,7 +41,10 @@ const getVideoComments = asyncHandler(async (req, res) => {
         },
       },
       {
-        $limit: limit
+        $skip : skip
+      },
+      {
+        $limit: parseInt(limit)
       },
       {
         $project: {
