@@ -4,6 +4,7 @@ import { upload } from "../middleware/multer.middleware.js";
 import { verifyJwt } from "../middleware/auth.middleware.js";
 import {
   deleteVideo,
+  getAllVideos,
   getVideoById,
   publishVideo,
   togglePublishStatus,
@@ -13,13 +14,14 @@ import {
 const router = Router();
 router.use(verifyJwt);
 
-router.route("/upload-video").post(
+router.route("/")
+.post(
   upload.fields([
     { name: "video", maxCount: 1 },
     { name: "thumbnail", maxCount: 1 },
   ]),
   publishVideo
-);
+).get(getAllVideos);
 
 router.route("/:videoId")
   .delete(deleteVideo)

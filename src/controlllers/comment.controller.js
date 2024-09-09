@@ -2,8 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { Comment } from "../models/comment.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import mongoose from 'mongoose';
-
+import mongoose from "mongoose";
 
 const getVideoComments = asyncHandler(async (req, res) => {
   //TODO: get all comments for a video
@@ -13,11 +12,11 @@ const getVideoComments = asyncHandler(async (req, res) => {
   const skip = (page - 1) * limit;
 
   const comment = await Comment.aggregate([
+   
     [
       {
         $match: {
-          video: new mongoose.Types.ObjectId(videoId)
-          
+          video: new mongoose.Types.ObjectId(videoId),
         },
       },
       {
@@ -29,15 +28,17 @@ const getVideoComments = asyncHandler(async (req, res) => {
         },
       },
       {
-        $addFields: {
-          owner_details: {
-            $first: "$owner_details",
-          },
+        $lookup: {
+          from: "likes",
+          localField: "_id",
+          foreignField: "comment",
+          as: "likes",
         },
       },
       {
         $addFields: {
-          owner_name: "$owner_details.fullname",
+          owner_name: { $arrayElemAt: ["$owner_details.fullname", 0] }, // Extracts the first element's fullname directly
+          like_count: { $size: "$likes" }, // Count the number of likes
         },
       },
       {
@@ -49,19 +50,20 @@ const getVideoComments = asyncHandler(async (req, res) => {
       {
         $project: {
           owner_details: 0,
-          video : 0,
-          owner : 0,
-          createdAt : 0,
-          updatedAt : 0,
-          __v : 0
+          video: 0,
+          owner: 0,
+          createdAt: 0,
+          updatedAt: 0,
+          likes: 0,
+          __v: 0,
         },
       },
-    ]
-  ])
+    ],
+  ]);
 
   return res
-  .status(200)
-  .json(new ApiResponse(200, comment[0], "Comment Fetched"))
+    .status(200)
+    .json(new ApiResponse(200, comment[0], "Comment Fetched"));
 });
 
 const addComment = asyncHandler(async (req, res) => {
